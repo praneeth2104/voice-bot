@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview Voice Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --coal:#14161a; --panel:#1c1f26; --panel-2:#232730;
+    --amber:#f2a93b; --amber-deep:#c77f14;
+    --ink:#ecebe4; --muted:#9aa0ac; --line:#2e3340;
+    --user:#2b3a52; --bot:#232730;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--coal); color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif; font-size:16px; line-height:1.6;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .wrap{width:100%; max-width:720px; display:flex; flex-direction:column; height:100dvh; padding:0 16px}
+
+  header{padding:26px 4px 14px; border-bottom:1px solid var(--line)}
+  .lamp{display:flex; align-items:center; gap:12px}
+  .lamp-dot{width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 14px 2px rgba(242,169,59,.55);flex:none}
+  h1{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:22px; letter-spacing:.2px}
+  .sub{color:var(--muted); font-size:13.5px; margin-top:4px}
+
+  #chat{flex:1; overflow-y:auto; padding:20px 2px; display:flex; flex-direction:column; gap:14px; scroll-behavior:smooth}
+  .msg{max-width:82%; padding:12px 16px; border-radius:14px; font-size:15px; white-space:pre-wrap; word-wrap:break-word}
+  .msg.user{align-self:flex-end; background:var(--user); border-bottom-right-radius:4px}
+  .msg.bot{align-self:flex-start; background:var(--bot); border:1px solid var(--line); border-bottom-left-radius:4px}
+  .msg.bot.speaking{border-color:var(--amber-deep)}
+  .who{font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); margin-bottom:4px; font-family:'Space Grotesk',sans-serif}
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px; padding:6px 2px 12px}
+  .chip{
+    background:transparent; color:var(--muted); border:1px solid var(--line);
+    border-radius:999px; padding:7px 14px; font-size:12.5px; cursor:pointer;
+    font-family:'Inter',sans-serif; transition:color .15s,border-color .15s;
+  }
+  .chip:hover,.chip:focus-visible{color:var(--ink); border-color:var(--amber-deep)}
+
+  .dock{border-top:1px solid var(--line); padding:14px 2px calc(16px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:12px}
+  #status{min-height:20px; text-align:center; font-size:13px; color:var(--muted)}
+  #status.live{color:var(--amber)}
+
+  .controls{display:flex; align-items:center; gap:12px}
+  #text-in{
+    flex:1; background:var(--panel); border:1px solid var(--line); color:var(--ink);
+    border-radius:12px; padding:13px 16px; font-size:15px; font-family:'Inter',sans-serif; outline:none;
+  }
+  #text-in:focus{border-color:var(--amber-deep)}
+  #text-in::placeholder{color:#6d7380}
+
+  button{cursor:pointer; font-family:'Inter',sans-serif}
+  #send{
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
+    border-radius:12px; padding:12px 18px; font-size:14px; font-weight:500;
+  }
+  #send:hover{border-color:var(--amber-deep)}
+
+  .mic-row{display:flex; justify-content:center; align-items:center; gap:18px}
+  #mic{
+    position:relative; width:76px; height:76px; border-radius:50%; border:none; flex:none;
+    background:var(--amber); color:#241a05; display:flex; align-items:center; justify-content:center;
+    transition:transform .12s;
+  }
+  #mic:hover{transform:scale(1.04)}
+  #mic:active{transform:scale(.97)}
+  #mic svg{width:30px;height:30px}
+  #mic.listening{background:#e2534b; color:#fff}
+  #mic:disabled{opacity:.45; cursor:not-allowed}
+  .ring{position:absolute; inset:-8px; border-radius:50%; border:2px solid var(--amber); opacity:0; pointer-events:none}
+  @media (prefers-reduced-motion:no-preference){
+    #mic.listening .ring{animation:pulse 1.4s ease-out infinite}
+    @keyframes pulse{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.35);opacity:0}}
+  }
+  #stop-speak{
+    display:none; background:transparent; border:1px solid var(--line); color:var(--muted);
+    border-radius:999px; padding:8px 16px; font-size:13px;
+  }
+  #stop-speak.show{display:inline-block}
+  #stop-speak:hover{color:var(--ink); border-color:var(--amber-deep)}
+
+  .hint{text-align:center; font-size:12px; color:#6d7380}
+  ::-webkit-scrollbar{width:8px}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
+  :focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="lamp">
+      <span class="lamp-dot" aria-hidden="true"></span>
+      <h1>Interview Voice Bot</h1>
+    </div>
+    <p class="sub">Ask me anything about my background, skills, and goals — by voice or text.</p>
+  </header>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <div class="chips" id="chips">
+    <button class="chip">What should we know about your life story?</button>
+    <button class="chip">What's your #1 superpower?</button>
+    <button class="chip">What are the top 3 areas you'd like to grow in?</button>
+    <button class="chip">What misconception do your coworkers have about you?</button>
+    <button class="chip">How do you push your boundaries and limits?</button>
+  </div>
+
+  <div class="dock">
+    <div id="status">Tap the mic and ask a question</div>
+    <div class="mic-row">
+      <button id="mic" aria-label="Tap to speak">
+        <span class="ring" aria-hidden="true"></span>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+        </svg>
+      </button>
+      <button id="stop-speak">Stop speaking</button>
+    </div>
+    <div class="controls">
+      <input id="text-in" type="text" placeholder="Or type your question here…" autocomplete="off">
+      <button id="send">Send</button>
+    </div>
+    <p class="hint">Voice input works best in Chrome or Edge. Typing works everywhere.</p>
+  </div>
+</div>
+
+<script>
+const chat = document.getElementById('chat');
+const micBtn = document.getElementById('mic');
+const stopBtn = document.getElementById('stop-speak');
+const statusEl = document.getElementById('status');
+const textIn = document.getElementById('text-in');
+const sendBtn = document.getElementById('send');
+const chips = document.getElementById('chips');
+
+const history = [];
+let busy = false;
+let listening = false;
+
+/* ---------- UI helpers ---------- */
+function addMsg(role, text){
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = '<div class="who">' + (role === 'user' ? 'You' : 'Me') + '</div>';
+  div.appendChild(document.createTextNode(text));
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+function setStatus(text, live){
+  statusEl.textContent = text;
+  statusEl.className = live ? 'live' : '';
+}
+
+/* ---------- Text to speech ---------- */
+let voices = [];
+function loadVoices(){ voices = speechSynthesis.getVoices(); }
+loadVoices();
+if (typeof speechSynthesis !== 'undefined'){
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+function pickVoice(){
+  const prefs = ['en-IN','en-GB','en-US','en'];
+  for (const p of prefs){
+    const v = voices.find(v => v.lang && v.lang.startsWith(p));
+    if (v) return v;
+  }
+  return null;
+}
+function speak(text, bubble){
+  if (typeof speechSynthesis === 'undefined') return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const v = pickVoice();
+  if (v) u.voice = v;
+  u.rate = 1; u.pitch = 1;
+  u.onstart = () => {
+    setStatus('Speaking…', true);
+    stopBtn.classList.add('show');
+    if (bubble) bubble.classList.add('speaking');
+  };
+  u.onend = u.onerror = () => {
+    setStatus('Tap the mic and ask a question');
+    stopBtn.classList.remove('show');
+    if (bubble) bubble.classList.remove('speaking');
+  };
+  speechSynthesis.speak(u);
+}
+stopBtn.addEventListener('click', () => {
+  speechSynthesis.cancel();
+  stopBtn.classList.remove('show');
+  setStatus('Tap the mic and ask a question');
+});
+
+/* ---------- Ask the backend ---------- */
+async function ask(question){
+  if (busy || !question.trim()) return;
+  busy = true;
+  speechSynthesis.cancel();
+  addMsg('user', question);
+  history.push({ role:'user', text:question });
+  setStatus('Thinking…', true);
+  micBtn.disabled = true; sendBtn.disabled = true;
+
+  try{
+    const r = await fetch('/api/chat', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ messages: history })
+    });
+    const data = await r.json();
+    const reply = data.reply || data.error || 'Sorry, something went wrong. Please try again.';
+    history.push({ role:'bot', text:reply });
+    const bubble = addMsg('bot', reply);
+    speak(reply, bubble);
+  }catch(e){
+    const msg = 'Sorry, I could not reach the server. Please check your connection and try again.';
+    addMsg('bot', msg);
+    setStatus('Tap the mic and ask a question');
+  }finally{
+    busy = false;
+    micBtn.disabled = false; sendBtn.disabled = false;
+  }
+}
+
+/* ---------- Speech to text ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+if (SR){
+  recognition = new SR();
+  recognition.lang = 'en-IN';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    ask(transcript);
+  };
+  recognition.onstart = () => {
+    listening = true;
+    micBtn.classList.add('listening');
+    setStatus('Listening… speak now', true);
+  };
+  recognition.onend = () => {
+    listening = false;
+    micBtn.classList.remove('listening');
+    if (!busy) setStatus('Tap the mic and ask a question');
+  };
+  recognition.onerror = (e) => {
+    listening = false;
+    micBtn.classList.remove('listening');
+    if (e.error === 'not-allowed'){
+      setStatus('Microphone blocked — allow mic access in your browser, or type below');
+    } else if (e.error === 'no-speech'){
+      setStatus('Did not hear anything — tap the mic and try again');
+    } else {
+      setStatus('Voice input hiccup — try again or type below');
+    }
+  };
+} else {
+  micBtn.disabled = true;
+  setStatus('Voice input is not supported in this browser — please type your question below');
+}
+
+micBtn.addEventListener('click', () => {
+  if (!recognition) return;
+  if (listening){ recognition.stop(); return; }
+  speechSynthesis.cancel();
+  try{ recognition.start(); }catch(e){ /* already started */ }
+});
+
+/* ---------- Text input + chips ---------- */
+function sendTyped(){
+  const q = textIn.value;
+  textIn.value = '';
+  ask(q);
+}
+sendBtn.addEventListener('click', sendTyped);
+textIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendTyped(); });
+chips.addEventListener('click', (e) => {
+  if (e.target.classList.contains('chip')) ask(e.target.textContent);
+});
+
+/* ---------- Greeting ---------- */
+addMsg('bot', "Hi! I'm a voice bot that answers interview questions on my behalf. Tap the mic, or try one of the sample questions above.");
+</script>
+</body>
+</html>
