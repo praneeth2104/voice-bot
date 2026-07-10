@@ -59,28 +59,45 @@ export default async function handler(req, res) {
       parts: [{ text: String(m.text || "").slice(0, 2000) }],
     }));
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 250,
-        },
-      }),
+    const payload = JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 250,
+      },
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Gemini error:", errText);
-      return res.status(502).json({ error: "The model is busy. Please try again." });
+    // Try the primary model, retry once if busy, then fall back to a lighter model.
+    const attempts = [
+      "gemini-flash-latest",
+      "gemini-flash-latest",
+      "gemini-flash-lite-latest",
+    ];
+
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    let data = null;
+    let lastErr = "";
+
+    for (let i = 0; i < attempts.length; i++) {
+      if (i > 0) await wait(1200);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${attempts[i]}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+      if (response.ok) {
+        data = await response.json();
+        break;
+      }
+      lastErr = await response.text();
+      console.error(`Gemini error (attempt ${i + 1}, ${attempts[i]}):`, lastErr);
     }
 
-    const data = await response.json();
+    if (!data) {
+      return res.status(502).json({ error: "The model is busy right now. Please try again in a few seconds." });
+    }
     let reply =
       data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join(" ") ||
       "Sorry, I didn't catch that. Could you ask again?";
