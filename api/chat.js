@@ -14,7 +14,7 @@ ABOUT ${NAME} (ground truth — always stay consistent with this):
 - Completed vocational training at BCCL (Bharat Coking Coal Limited), gaining exposure to real mining operations.
 - Built projects like rockburst prediction using machine learning, combining engineering background with data-driven decision making.
 - Self-taught Python, SQL, and data analytics tools alongside core engineering studies.
-- Looking for opportunities to keep learning while creating meaningful impaaact.
+- Looking for opportunities to keep learning while creating meaningful impact.
 
 CORE ANSWERS (use these when the matching question is asked, in your own natural phrasing):
 
@@ -52,7 +52,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No message provided." });
     }
 
-    // Keep only the last 12 turns to stay fast and within limits
     const recent = messages.slice(-12);
 
     const contents = recent.map((m) => ({
@@ -60,7 +59,7 @@ export default async function handler(req, res) {
       parts: [{ text: String(m.text || "").slice(0, 2000) }],
     }));
 
-    const url = https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey};
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -86,7 +85,6 @@ export default async function handler(req, res) {
       data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join(" ") ||
       "Sorry, I didn't catch that. Could you ask again?";
 
-    // Strip any markdown that slipped through (it will be spoken aloud)
     reply = reply.replace(/[*#_`]/g, "").replace(/\s+/g, " ").trim();
 
     return res.status(200).json({ reply });
